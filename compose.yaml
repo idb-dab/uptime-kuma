@@ -1,8 +1,6 @@
 services:
   uptime-kuma:
     image: louislam/uptime-kuma:1
-    environment:
-      - KUMA_NOTIFICATION_WEBHOOK_URL=${webhook_link}
     volumes:
       - ./data:/app/data
     ports:
