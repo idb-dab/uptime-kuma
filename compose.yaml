@@ -1,9 +1,11 @@
 services:
   uptime-kuma:
     image: louislam/uptime-kuma:1
+    environment:
+      - KUMA_NOTIFICATION_WEBHOOK_URL=${webhook_link}
     volumes:
       - ./data:/app/data
     ports:
-      # <Host Port>:<Container Port>
+    # <Host Port>:<Container Port>
       - 3001:3001
     restart: unless-stopped

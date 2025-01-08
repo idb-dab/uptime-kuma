@@ -1,3 +1,4 @@
+require('dotenv').config();
 const dayjs = require("dayjs");
 const axios = require("axios");
 const { Prometheus } = require("../prometheus");
@@ -24,6 +25,10 @@ const { CookieJar } = require("tough-cookie");
 const { HttpsCookieAgent } = require("http-cookie-agent/http");
 const https = require("https");
 const http = require("http");
+// const cryptoService = require("crypto");
+const { config } =  require("../../src/common/utils/crypto-helper/config")
+const { CallSecuredEndpoint } = require("../../src/common/utils/crypto-helper/FetchAPI");
+
 
 const rootCertificates = rootCertificatesFingerprints();
 
@@ -44,6 +49,57 @@ class Monitor extends BeanModel {
      * JSON
      * @returns {Promise<object>} Object ready to parse
      */
+
+    isEncryptedEndpoint(url) {
+        const encryptedEndpoints = [
+            "/api/accounts/v1/account-details/get",
+            "/api/v1/document-generator",
+            "/api/balance/v1/accounts/all/get",
+            "/api/investments/v1/apy/apply",
+            "/api/accounts/v1/loan/deposit/avail",
+            "/api/accounts/v1/fatca/check",
+            "/api/accounts/v1/fatca/submit",
+            "/api/accounts/v1/transfer",
+            "/api/accounts/v1/accounts/delink",
+            "/api/accounts/v1/accounts/link",
+            "/api/accounts/v1/nominee/add",
+            "/api/accounts/v1/nominee/get",
+            "/api/accounts/v1/ppf/register",
+            "/api/accounts/v1/lien/get",
+            "/api/accounts/v1/mmid/generate",
+            "/api/accounts/v1/mmid/delete",
+            "/api/accounts/v1/mmid/validate",
+            "/api/accounts/v1/swift/get",
+            "/api/accounts/v1/ssa/get",
+            "/api/accounts/v1/ssa/validate",
+            "/api/accounts/v1/ssa/open",
+            "/api/accounts/v1/loan/deposit/avail",
+            "/api/accounts/v1/loan/deposit/close",
+            "/api/accounts/v1/loan/labod/interest/rate",
+            "/api/accounts/v1/loan/deposit/fetch",
+            "/api/accounts/v1/account-details/accounts",
+            "/api/accounts/v1/account-details/within-bank",
+            "/api/accounts/v1/account-details/operative",
+            "/api/accounts/v1/temporary-overdraft/get",
+            "/api/accounts/v1/account-aggregator/initiate",
+            "/api/accounts/v1/account-aggregator/status/get",
+            "/api/accounts/v1/account-aggregator/account/get",
+            "/api/accounts/v1/account-aggregator/transactions/get",
+            
+        ];
+
+        return encryptedEndpoints.some((endpoint) => {
+            log.debug("### this is the endpoint", endpoint);
+            log.debug("This is the URL", url);
+            log.debug("####this is the return:", url.includes(endpoint));
+           return url.includes(endpoint)
+        
+        });
+    }
+
+    
+    
+
     async toPublicJSON(showTags = false, certExpiry = false) {
         let obj = {
             id: this.id,
@@ -551,27 +607,80 @@ class Monitor extends BeanModel {
                     log.debug("monitor", `[${this.name}] Axios Request`);
 
                     // Make Request
-                    let res = await this.makeAxiosRequest(options);
+                    let res = await this.makeAxiosRequest(options, true);
+                    log.debug("Response received:", res);
+                    // log.debug("Detailed Response:", JSON.stringify(res, null, 2));
+                    console.log("Response headers:", res.headers);
+                    console.log("Response data:", res.data);
+                    log.debug("nikita 13", { status: res.status, statusCode: res.statusCode });
 
-                    bean.msg = `${res.status} - ${res.statusText}`;
+                    if(res && res.statusCode)
+                    {
+                        log.debug("statusCode value:", res.statusCode);
+                        log.debug("all good here 1");
+                        debugger;
+                        bean.msg = `The Endpoint is UP with StatusCode: ${res.statusCode}`;
+                        
+                        log.debug("this is the bean msg", bean.msg);
+                        log.debug("all good here 2", res.statusCode);
+
+                        if(res.statusCode == 'S')
+                        {
+                            log.debug("all good here 3",res.statusCode);
+                            bean.status = UP;
+                            log.debug("all good here 4",res.statusCode);
+                        }
+                        log.debug("all good here 5",res.statusCode);
+                    }
+                    else if(res.status){
+                        log.debug("all good here 6",res.status);
+                        bean.msg = `${res.status} - ${res.statusText}`;
+                        log.debug("this is the bean msg", bean.msg);
+                        log.debug("all good here 7");
+                    }
+                    else{
+                        bean.msg = `The Endpoint is DOWN with StatusCode: F`;
+                    }
+                    log.debug("all good here 8", { status: res.status, statusCode: res.statusCode });
+                    
                     bean.ping = dayjs().valueOf() - startTime;
 
                     // fallback for if kelog event is not emitted, but we may still have tlsInfo,
                     // e.g. if the connection is made through a proxy
-                    if (this.getUrl()?.protocol === "https:" && tlsInfo.valid === undefined) {
-                        const tlsSocket = res.request.res.socket;
+                    // if(res && res.statusCode == 'S')
+                    // {
+                    //     bean.status = UP;
+                    // }
 
-                        if (tlsSocket) {
-                            tlsInfo = checkCertificate(tlsSocket);
-                            tlsInfo.valid = tlsSocket.authorized || false;
+                    log.debug("all good here 9", { status: res.status, statusCode: res.statusCode });
+                    // if (this.getUrl()?.protocol === "https:" && tlsInfo.valid === undefined && res) {
+                    //     log.debug("all good here 9a", { status: res.status, statusCode: res.statusCode });
+                    //     log.debug("Checking res.request", res.request);
+                    //     log.debug("Checking res.request.res", res.request.res);
+                    //     log.debug("Checking res.request.res.socket", res.request.res.socket);
+                    //     const tlsSocket = res.request.res.socket;
+                    //     log.debug("res.request.res.socket", res.request.res.socket);
+                    //     log.debug("all good here 10", { status: res.status, statusCode: res.statusCode });
+                    //     if (tlsSocket) {
+                    //         log.debug("all good here 11", { status: res.status, statusCode: res.statusCode });
+                    //         tlsInfo = checkCertificate(tlsSocket);
+                    //         tlsInfo.valid = tlsSocket.authorized || false;
 
-                            await this.handleTlsInfo(tlsInfo);
-                        }
-                    }
+                    //         await this.handleTlsInfo(tlsInfo);
+                    //     }
+                    // }
+                    log.debug("all good here 12", { status: res.status, statusCode: res.statusCode });
 
                     if (process.env.UPTIME_KUMA_LOG_RESPONSE_BODY_MONITOR_ID === this.id) {
+                        log.debug("all good here 13", { status: res.status, statusCode: res.statusCode });
+
                         log.info("monitor", res.data);
+                        log.debug("all good here 14", { status: res.status, statusCode: res.statusCode });
+
                     }
+                    
+                    log.debug("all good here 15", { status: res.status, statusCode: res.statusCode });
+
 
                     if (this.type === "http") {
                         bean.status = UP;
@@ -889,11 +998,13 @@ class Monitor extends BeanModel {
                 retries = 0;
 
             } catch (error) {
-
+                log.error("Error in try block:", error);
                 if (error?.name === "CanceledError") {
                     bean.msg = `timeout by AbortSignal (${this.timeout}s)`;
+                    log.debug("The msg is from here #1", bean.msg);
                 } else {
                     bean.msg = error.message;
+                    log.debug("The msg is from here #2", bean.msg);
                 }
 
                 // If UP come in here, it must be upside down mode
@@ -904,13 +1015,16 @@ class Monitor extends BeanModel {
                 } else if ((this.maxretries > 0) && (retries < this.maxretries)) {
                     retries++;
                     bean.status = PENDING;
+                    log.debug("The msg is from here #3", bean.status);
                 } else {
                     // Continue counting retries during DOWN
                     retries++;
+                    log.debug("The msg is from here #4", retries);
                 }
             }
 
             bean.retries = retries;
+            log.debug("The msg is from here #5", bean.retries);
 
             log.debug("monitor", `[${this.name}] Check isImportant`);
             let isImportant = Monitor.isImportantBeat(isFirstBeat, previousBeat?.status, bean.status);
@@ -919,11 +1033,14 @@ class Monitor extends BeanModel {
             // Don't notify if disrupted changes to up
             if (isImportant) {
                 bean.important = true;
+                log.debug("The msg is from here #6", bean.important);
 
                 if (Monitor.isImportantForNotification(isFirstBeat, previousBeat?.status, bean.status)) {
+                    log.debug("The msg is from here #7");
                     log.debug("monitor", `[${this.name}] sendNotification`);
                     await Monitor.sendNotification(isFirstBeat, this, bean);
                 } else {
+                    log.debug("The msg is from here #8");
                     log.debug("monitor", `[${this.name}] will not sendNotification because it is (or was) under maintenance`);
                 }
 
@@ -931,6 +1048,7 @@ class Monitor extends BeanModel {
                 bean.downCount = 0;
 
                 // Clear Status Page Cache
+                log.debug("The msg is from here #9");
                 log.debug("monitor", `[${this.name}] apicache clear`);
                 apicache.clear();
 
@@ -943,6 +1061,7 @@ class Monitor extends BeanModel {
                     ++bean.downCount;
                     if (bean.downCount >= this.resendInterval) {
                         // Send notification again, because we are still DOWN
+                        log.debug("The msg is from here #10");
                         log.debug("monitor", `[${this.name}] sendNotification again: Down Count: ${bean.downCount} | Resend Interval: ${this.resendInterval}`);
                         await Monitor.sendNotification(isFirstBeat, this, bean);
 
@@ -953,15 +1072,19 @@ class Monitor extends BeanModel {
             }
 
             if (bean.status === UP) {
+                log.debug("The msg is from here #11");
                 log.debug("monitor", `Monitor #${this.id} '${this.name}': Successful Response: ${bean.ping} ms | Interval: ${beatInterval} seconds | Type: ${this.type}`);
             } else if (bean.status === PENDING) {
                 if (this.retryInterval > 0) {
                     beatInterval = this.retryInterval;
                 }
+                log.debug("The msg is from here #12");
                 log.warn("monitor", `Monitor #${this.id} '${this.name}': Pending: ${bean.msg} | Max retries: ${this.maxretries} | Retry: ${retries} | Retry Interval: ${beatInterval} seconds | Type: ${this.type}`);
             } else if (bean.status === MAINTENANCE) {
+                log.debug("The msg is from here #13");
                 log.warn("monitor", `Monitor #${this.id} '${this.name}': Under Maintenance | Type: ${this.type}`);
             } else {
+                log.debug("The msg is from here #14");
                 log.warn("monitor", `Monitor #${this.id} '${this.name}': Failing: ${bean.msg} | Interval: ${beatInterval} seconds | Type: ${this.type} | Down Count: ${bean.downCount} | Resend Interval: ${this.resendInterval}`);
             }
 
@@ -1030,62 +1153,115 @@ class Monitor extends BeanModel {
         }
     }
 
-    /**
-     * Make a request using axios
-     * @param {object} options Options for Axios
-     * @param {boolean} finalCall Should this be the final call i.e
-     * don't retry on failure
-     * @returns {object} Axios response
-     */
-    async makeAxiosRequest(options, finalCall = false) {
-        try {
-            let res;
-            if (this.auth_method === "ntlm") {
-                options.httpsAgent.keepAlive = true;
+/**
+ * Make a request using axios or CallSecuredEndpoint
+ * @param {object} options Options for Axios
+ * @param {boolean} finalCall Should this be the final call i.e
+ * don't retry on failure
+ * @returns {object} Response from the endpoint
+ */
+async makeAxiosRequest(options, finalCall = false) {
+    try {
+        let res;
 
-                res = await httpNtlm(options, {
-                    username: this.basic_auth_user,
-                    password: this.basic_auth_pass,
-                    domain: this.authDomain,
-                    workstation: this.authWorkstation ? this.authWorkstation : undefined
-                });
-            } else {
-                res = await axios.request(options);
-            }
+        if (this.auth_method === "ntlm") {
+            options.httpsAgent.keepAlive = true;
 
-            return res;
-        } catch (error) {
+            res = await httpNtlm(options, {
+                username: this.basic_auth_user,
+                password: this.basic_auth_pass,
+                domain: this.authDomain,
+                workstation: this.authWorkstation ? this.authWorkstation : undefined
+            });
+        } else {
+            log.debug("####OPTIONS:", options);
 
-            /**
-             * Make a single attempt to obtain an new access token in the event that
-             * the recent api request failed for authentication purposes
-             */
-            if (this.auth_method === "oauth2-cc" && error.response.status === 401 && !finalCall) {
-                this.oauthAccessToken = await this.makeOidcTokenClientCredentialsRequest();
-                let oauth2AuthHeader = {
-                    "Authorization": this.oauthAccessToken.token_type + " " + this.oauthAccessToken.access_token,
-                };
-                options.headers = { ...(options.headers),
-                    ...(oauth2AuthHeader)
-                };
+            // Determine if the endpoint is encrypted
+            const isEncrypted = this.isEncryptedEndpoint(options.url);
 
-                return this.makeAxiosRequest(options, true);
-            }
+            log.debug("###### to check whether its going in isEncrpted", isEncrypted);
+            if (isEncrypted) {
+                // Call secured endpoint
 
-            // Fix #2253
-            // Read more: https://stackoverflow.com/questions/1759956/curl-error-18-transfer-closed-with-outstanding-read-data-remaining
-            if (!finalCall && typeof error.message === "string" && error.message.includes("maxContentLength size of -1 exceeded")) {
-                log.debug("monitor", "makeAxiosRequest with gzip");
-                options.headers["Accept-Encoding"] = "gzip, deflate";
-                return this.makeAxiosRequest(options, true);
-            } else {
-                if (typeof error.message === "string" && error.message.includes("maxContentLength size of -1 exceeded")) {
-                    error.message = "response timeout: incomplete response within a interval";
+                if (options.method === 'GET' || options.method === 'HEAD') {
+                    delete options.data; // Ensure no body is included
                 }
-                throw error;
+
+                const response = await CallSecuredEndpoint(
+                    options.url,
+                    options.method,
+                    options.data,
+                    options.headers,
+                    true,
+                    {
+                        uuid: process.env.UUID,
+                        publicKey: process.env.PUBLIC_KEY,                    }
+                );
+        
+                // return response.data;
+
+                log.debug("HERE IS THE RESPONSE:", response);
+                log.debug("1234");
+                if (!response && !response.decryptedResponse) {
+                    throw new Error(`Error: No decryptedResponse for ${options.url}`);
+                }
+
+                res = response.decryptedResponse;
+
+                log.debug("####this is the status from the res", response.status);
+                log.debug("#### There is the RES: ", res);
+                log.debug("###### this is the staus code from res 12345678");
+                log.debug("The DECRYPTED RESPONSE", response.decryptedResponse);
+                log.debug("The STATUS CODE is", response.decryptedResponse.statusCode);
+                // return response.decryptedResponse;
+            } else {
+                // Call unsecured endpoint using Axios
+                res = await axios.request(options);
+
+                if (!res || typeof res !== 'object') {
+                    throw new Error(`Unexpected response format: ${res}`);
+                }
+                log.debug("The STATUS CODE is of unencrypted", res.status);
+                return res;
             }
         }
+
+        log.debug("this is the res temp####: #### ", res);
+
+        return res;
+    } catch (error) {
+        log.debug("######TEST ERROR", error.response?.data || error.message);
+
+        /**
+         * Retry logic for oauth2-cc and authentication failures
+         */
+        if (this.auth_method === "oauth2-cc" && error.response?.status === 401 && !finalCall) {
+            this.oauthAccessToken = await this.makeOidcTokenClientCredentialsRequest();
+            let oauth2AuthHeader = {
+                "Authorization": `${this.oauthAccessToken.token_type} ${this.oauthAccessToken.access_token}`,
+            };
+            options.headers = { ...(options.headers), ...(oauth2AuthHeader) };
+
+            log.debug("this is the return for auth_method: #### ", this.makeAxiosRequest(options, true));
+            return this.makeAxiosRequest(options, true);
+        }
+
+        // Retry logic for "maxContentLength size of -1 exceeded"
+        if (!finalCall && typeof error.message === "string" && error.message.includes("maxContentLength size of -1 exceeded")) {
+            log.debug("Retrying makeAxiosRequest with gzip encoding");
+            options.headers["Accept-Encoding"] = "gzip, deflate";
+
+            log.debug("this is the return for final call: #### ", this.makeAxiosRequest(options, true));
+
+            return this.makeAxiosRequest(options, true);
+        } else {
+            if (typeof error.message === "string" && error.message.includes("maxContentLength size of -1 exceeded")) {
+                error.message = "response timeout: incomplete response within a interval";
+            }
+            throw error;
+        }
     }
+}
 
     /**
      * Stop monitor
